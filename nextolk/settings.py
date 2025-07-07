@@ -124,7 +124,7 @@ else:
     CORS_ALLOWED_ORIGINS = [
         'https://africana-1b1c6.web.app',
         'https://africana-1b1c6.firebaseapp.com',
-        # Add Render frontend or Flutter web URLs here if needed
+        'https://nextolk.onrender.com', # Add your Render URL here for CORS if needed
     ]
 
 # Jazzmin
@@ -133,7 +133,8 @@ JAZZMIN_SETTINGS = {
     "site_header": "Nextolke",
     "welcome_sign_in": "Welcome to the Nextolke Admin",
     "copyright": "Copyright © 2025",
-    "search_model": ["user.User", "user.Video", "user.Profile"],
+    # Changed 'user.User' to 'auth.User'
+    "search_model": ["auth.User", "user.Video", "user.Profile"],
     "user_name_field": "username",
     "topbar_links": [
         {"name": "Home", "url": "admin:index", "new_window": False},
@@ -141,7 +142,7 @@ JAZZMIN_SETTINGS = {
         {"model": "user.Video"},
         {"model": "user.Profile"},
         {"model": "eshop.Product"},
-        {"model": "user.User"},
+        {"model": "auth.User"}, # Changed 'user.User' to 'auth.User'
     ],
     "order_with_respect_to": [
         "authtoken", "auth", "eshop", "user"
@@ -166,9 +167,9 @@ JAZZMIN_UI_TWEAKS = {
     "footer_small_text": False,
     "body_small_text": False,
     "brand_small_text": False,
-    "brand_colour": "navbar-white", # Changed from navbar-dark to navbar-white for a lighter top bar
-    "accent": "accent-primary", # Changed from accent-info to accent-primary for a more common accent color
-    "navbar": "navbar-white navbar-light", # Changed from navbar-dark navbar-primary for a lighter navbar
+    "brand_colour": "navbar-white",
+    "accent": "accent-primary",
+    "navbar": "navbar-white navbar-light",
     "no_navbar_border": False,
     "navbar_fixed": False,
     "layout_boxed": False,
@@ -180,8 +181,8 @@ JAZZMIN_UI_TWEAKS = {
     "sidebar_nav_compact_style": False,
     "sidebar_nav_legacy_style": True,
     "sidebar_nav_flat_style": False,
-    "theme": "flatly", # Changed from "darkly" to "flatly" for a lighter, modern look
-    "dark_mode_theme": None, # Set to None to prevent automatic dark mode if not desired
+    "theme": "flatly",
+    "dark_mode_theme": None,
     "button_classes": {
         "primary": "btn-outline-primary",
         "secondary": "btn-outline-secondary",
