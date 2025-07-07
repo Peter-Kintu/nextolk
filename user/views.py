@@ -1,4 +1,4 @@
-# user/views.py (Updated with check_like action for VideoViewSet)
+# user/views.py (UPDATED: Added CurrentUserProfileView)
 
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect, get_object_or_404
@@ -10,10 +10,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
-from .models import Profile, Video, Comment, Like, Follow, PhoneNumberOTP # Ensure PhoneNumberOTP is imported
-from .serializers import ProfileSerializer, UserSerializer, VideoSerializer, CommentSerializer, LikeSerializer, FollowSerializer, PhoneNumberOTPSerializer # Ensure PhoneNumberOTPSerializer is imported
-from django.utils import timezone # Import timezone for OTP views
-import random # For OTP generation
+from .models import Profile, Video, Comment, Like, Follow, PhoneNumberOTP
+from .serializers import ProfileSerializer, UserSerializer, VideoSerializer, CommentSerializer, LikeSerializer, FollowSerializer, PhoneNumberOTPSerializer
+from django.utils import timezone
+import random
 
 # This is a web-based view, not for the API.
 # It can be kept for a web dashboard or removed if not needed.
@@ -29,35 +29,58 @@ def register(request):
         form = UserCreationForm()
     return render(request, 'user/register.html', {'form': form})
 
-# NEW: API View for User Registration
 class RegisterView(generics.CreateAPIView):
+    """
+    API endpoint for user registration.
+    """
     queryset = User.objects.all()
+    permission_classes = (AllowAny,)
     serializer_class = UserSerializer
-    permission_classes = [AllowAny]
 
 class ProfileViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows profiles to be viewed or edited.
+    """
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
-    permission_classes = [IsAuthenticated] # Only authenticated users can view/edit profiles
+    permission_classes = [IsAuthenticated] # Only authenticated users can access profiles
 
     def get_queryset(self):
-        # Allow users to see their own profile or public profiles
-        # For simplicity, let's allow all authenticated users to see all profiles for now
-        return Profile.objects.all()
+        """
+        Optionally restricts the returned profiles to a given user,
+        by filtering against a `user_id` query parameter in the URL.
+        """
+        queryset = Profile.objects.all()
+        user_id = self.request.query_params.get('user_id')
+        if user_id is not None:
+            queryset = queryset.filter(user__id=user_id)
+        return queryset
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
-    def my_profile(self, request, pk=None):
+    def perform_create(self, serializer):
+        # This is typically handled by a signal (create_user_profile)
+        # but if you create profiles directly, ensure user is set.
+        serializer.save(user=self.request.user)
+
+    def partial_update(self, request, *args, **kwargs):
         """
-        Custom action to retrieve the currently authenticated user's profile.
+        Custom partial update to handle profile picture and bio updates.
         """
-        try:
-            profile = Profile.objects.get(user=request.user)
-            serializer = self.get_serializer(profile)
-            return Response(serializer.data)
-        except Profile.DoesNotExist:
-            return Response({'detail': 'Profile not found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+        instance = self.get_object()
+        # Ensure the user is updating their own profile
+        if instance.user != request.user:
+            return Response({"detail": "You do not have permission to perform this action."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
 
 class VideoViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows videos to be viewed or edited.
+    """
     queryset = Video.objects.all().order_by('-created_at') # Order by newest first
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated]
@@ -65,70 +88,98 @@ class VideoViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'], url_path='following_feed')
     def following_feed(self, request):
         """
-        Returns videos from users the current user is following.
+        Get videos from users that the current user is following.
         """
-        followed_users = Follow.objects.filter(follower=request.user).values_list('following', flat=True)
-        videos = Video.objects.filter(user__in=followed_users).order_by('-created_at')
-        page = self.paginate_queryset(videos)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        following_users = Follow.objects.filter(follower=user).values_list('following', flat=True)
+        videos = Video.objects.filter(user__in=following_users).order_by('-created_at')
         serializer = self.get_serializer(videos, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated], url_path='check_like')
     def check_like(self, request, pk=None):
         """
-        Checks if the authenticated user has liked a specific video.
-        URL: /api/videos/{video_id}/check_like/
+        Check if the current user has liked a specific video.
         """
-        video = self.get_object() # pk is used to get the video object
+        video = get_object_or_404(Video, pk=pk)
         user = request.user
-        is_liked = Like.objects.filter(user=user, video=video).exists()
-        return Response({'is_liked': is_liked}, status=status.HTTP_200_OK)
+        is_liked = Like.objects.filter(video=video, user=user).exists()
+        return Response({'is_liked': is_liked})
 
-
-class CommentViewSet(viewsets.ModelViewSet):
-    serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        video_id = self.kwargs['video_id']
-        return Comment.objects.filter(video__id=video_id).order_by('created_at')
-
-    def perform_create(self, serializer):
-        video_id = self.kwargs['video_id']
-        video = get_object_or_404(Video, id=video_id)
-        serializer.save(user=self.request.user, video=video)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def toggle_like(request, video_id):
+    """
+    API endpoint to toggle a like on a video.
+    """
     video = get_object_or_404(Video, id=video_id)
     user = request.user
-    like_exists = Like.objects.filter(user=user, video=video).exists()
 
-    if like_exists:
-        Like.objects.filter(user=user, video=video).delete()
+    try:
+        like = Like.objects.get(video=video, user=user)
+        like.delete()
         video.likes_count -= 1
         video.save()
-        return Response({'message': 'Video unliked.'}, status=status.HTTP_200_OK)
-    else:
-        Like.objects.create(user=user, video=video)
+        return Response({'status': 'unliked', 'likes_count': video.likes_count}, status=status.HTTP_200_OK)
+    except Like.DoesNotExist:
+        Like.objects.create(video=video, user=user)
         video.likes_count += 1
         video.save()
-        return Response({'message': 'Video liked.'}, status=status.HTTP_201_CREATED)
+        return Response({'status': 'liked', 'likes_count': video.likes_count}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows comments to be viewed or edited.
+    """
+    queryset = Comment.objects.all().order_by('-created_at')
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Optionally restricts the returned comments to a given video,
+        by filtering against a `video_id` in the URL.
+        """
+        queryset = Comment.objects.all()
+        video_id = self.kwargs.get('video_id')
+        if video_id is not None:
+            queryset = queryset.filter(video__id=video_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        video_id = self.kwargs.get('video_id')
+        video = get_object_or_404(Video, id=video_id)
+        serializer.save(user=self.request.user, video=video)
+        video.comments_count += 1
+        video.save()
+
+    def perform_destroy(self, instance):
+        video = instance.video
+        instance.delete()
+        video.comments_count -= 1
+        video.save()
+
 
 class FollowView(APIView):
+    """
+    API endpoint to toggle follow/unfollow a user.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, format=None):
-        following_user_id = request.data.get('following_user_id')
+        following_user_id = request.data.get('following_id')
         if not following_user_id:
-            return Response({'error': 'following_user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'following_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             following_user = User.objects.get(id=following_user_id)
@@ -140,52 +191,57 @@ class FollowView(APIView):
         if follower_user == following_user:
             return Response({'error': 'You cannot follow yourself.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        follow_exists = Follow.objects.filter(follower=follower_user, following=following_user).exists()
-
-        if follow_exists:
-            Follow.objects.filter(follower=follower_user, following=following_user).delete()
-
+        try:
+            follow_instance = Follow.objects.get(follower=follower_user, following=following_user)
+            follow_instance.delete()
             # Update follower/following counts
-            follower_user.profile.following_count = Follow.objects.filter(follower=follower_user).count()
-            following_user.profile.follower_count = Follow.objects.filter(following=following_user).count()
-            follower_user.profile.save()
-            following_user.profile.save()
-
-            return Response({'message': f'You are no longer following {following_user.username}.'}, status=status.HTTP_200_OK)
-        else:
+            follower_profile = Profile.objects.get(user=follower_user)
+            following_profile = Profile.objects.get(user=following_user)
+            follower_profile.following_count -= 1
+            following_profile.follower_count -= 1
+            follower_profile.save()
+            following_profile.save()
+            return Response({'status': 'unfollowed'}, status=status.HTTP_200_OK)
+        except Follow.DoesNotExist:
             Follow.objects.create(follower=follower_user, following=following_user)
+            # Update follower/following counts
+            follower_profile = Profile.objects.get(user=follower_user)
+            following_profile = Profile.objects.get(user=following_user)
+            follower_profile.following_count += 1
+            following_profile.follower_count += 1
+            follower_profile.save()
+            following_profile.save()
+            return Response({'status': 'followed'}, status=status.HTTP_201_CREATED)
+        except Profile.DoesNotExist:
+            return Response({'error': 'Profile not found for user.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            follower_user.profile.following_count = Follow.objects.filter(follower=follower_user).count()
-            following_user.profile.follower_count = Follow.objects.filter(following=following_user).count()
-            follower_user.profile.save()
-            following_user.profile.save()
-
-            return Response({'message': f'You are now following {following_user.username}.'}, status=status.HTTP_201_CREATED)
 
 class IsFollowingView(APIView):
     """
-    API endpoint to check if a specific user is following another user.
-    URL format: /api/profiles/{profile_id}/is_followed_by/{current_user_id}/
+    API endpoint to check if a current user is following a specific profile.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, profile_id, current_user_id, format=None):
-        target_user = get_object_or_404(User, id=profile_id)
-        checker_user = get_object_or_404(User, id=current_user_id)
+        try:
+            target_profile = Profile.objects.get(id=profile_id)
+            current_user = User.objects.get(id=current_user_id)
+        except Profile.DoesNotExist:
+            return Response({'error': 'Target profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except User.DoesNotExist:
+            return Response({'error': 'Current user not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Ensure the checker_user is the authenticated user making the request
-        if checker_user != request.user:
-            return Response({'error': 'You can only check follow status for yourself.'}, status=status.HTTP_403_FORBIDDEN)
-
-        is_following = Follow.objects.filter(follower=checker_user, following=target_user).exists()
+        is_following = Follow.objects.filter(follower=current_user, following=target_profile.user).exists()
         return Response({'is_following': is_following}, status=status.HTTP_200_OK)
 
-# NEW: OTP related views
+
 class RequestOTPView(APIView):
     """
-    API endpoint to request an OTP for a given phone number.
+    API endpoint to request an OTP for phone number verification.
     """
-    permission_classes = [AllowAny] # Allow unauthenticated users to request OTP
+    permission_classes = [AllowAny]
 
     def post(self, request, format=None):
         phone_number = request.data.get('phone_number')
@@ -195,28 +251,27 @@ class RequestOTPView(APIView):
         # Generate a 6-digit OTP
         otp = str(random.randint(100000, 999999))
 
-        # Store or update the OTP in the database
-        otp_instance, created = PhoneNumberOTP.objects.update_or_create(
+        # Store OTP with expiration (overwrite if existing for same number)
+        PhoneNumberOTP.objects.update_or_create(
             phone_number=phone_number,
             defaults={
                 'otp': otp,
-                'created_at': timezone.now(),
-                'expires_at': timezone.now() + timezone.timedelta(minutes=5) # OTP valid for 5 minutes
+                'expires_at': timezone.now() + timezone.timedelta(minutes=5)
             }
         )
 
-        # In a real application, you would send this OTP via SMS.
-        # For now, we'll just return it in the response for testing.
-        debug_message = f"DEBUG: OTP for {phone_number}: {otp}"
-        print(debug_message) # Print to console for development/testing
+        # In a real application, you would send this OTP via an SMS gateway
+        debug_print_otp = f"OTP for {phone_number}: {otp}" # For debugging purposes only
+        print(debug_print_otp) # Print to console for development
 
         return Response({'message': 'OTP sent successfully.', 'otp': otp}, status=status.HTTP_200_OK)
+
 
 class VerifyOTPView(APIView):
     """
     API endpoint to verify an OTP for a given phone number.
     """
-    permission_classes = [AllowAny] # Allow unauthenticated users to verify OTP
+    permission_classes = [AllowAny]
 
     def post(self, request, format=None):
         phone_number = request.data.get('phone_number')
@@ -240,4 +295,19 @@ class VerifyOTPView(APIView):
 
         # Optionally, delete the OTP after successful verification to prevent reuse
         otp_instance.delete()
+
         return Response({'message': 'OTP verified successfully.'}, status=status.HTTP_200_OK)
+
+
+# NEW: View to get the current authenticated user's profile
+class CurrentUserProfileView(generics.RetrieveAPIView):
+    """
+    API endpoint to retrieve the profile of the currently authenticated user.
+    """
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # Ensure the user has a profile, create one if not (though signal should handle this)
+        profile, created = Profile.objects.get_or_create(user=self.request.user)
+        return profile

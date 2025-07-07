@@ -1,4 +1,4 @@
-# users/urls.py (updated to fix FollowView as_as_view() typo)
+# users/urls.py (UPDATED: Added CurrentUserProfileView URL)
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
@@ -12,6 +12,9 @@ from rest_framework_simplejwt.views import (
 router = DefaultRouter()
 router.register(r'profiles', views.ProfileViewSet, basename='profile')
 router.register(r'videos', views.VideoViewSet, basename='video')
+# If you want to use CommentViewSet with a router for all comments (not nested under video)
+# router.register(r'comments', views.CommentViewSet, basename='comment')
+
 
 # The API URLs are now determined automatically by the router.
 urlpatterns = [
@@ -25,10 +28,9 @@ urlpatterns = [
 
     path('', include(router.urls)),
     path('videos/<int:video_id>/toggle_like/', views.toggle_like, name='toggle_like'),
-    path('follow/', views.FollowView.as_view(), name='follow_toggle'), # Corrected: as_view()
+    path('follow/', views.FollowView.as_view(), name='follow_toggle'),
 
-    # Paths for CommentViewSet, nested under videos (if you prefer this nesting)
-    # If you registered comments with the router above, you might not need these specific paths
+    # Paths for CommentViewSet, nested under videos
     path('videos/<int:video_id>/comments/',
          views.CommentViewSet.as_view({'get': 'list', 'post': 'create'}),
          name='video-comments-list-create'),
@@ -43,7 +45,10 @@ urlpatterns = [
     # NEW: URL for fetching the following feed (videos from followed users)
     path('videos/following_feed/', views.VideoViewSet.as_view({'get': 'following_feed'}), name='following_feed'),
 
-    # NEW: URLs for Phone Number OTP
+    # NEW: URL for the current authenticated user's profile
+    path('profiles/current_user/', views.CurrentUserProfileView.as_view(), name='current_user_profile'),
+
+    # NEW: Phone number OTP endpoints
     path('request-otp/', views.RequestOTPView.as_view(), name='request_otp'),
     path('verify-otp/', views.VerifyOTPView.as_view(), name='verify_otp'),
 ]
