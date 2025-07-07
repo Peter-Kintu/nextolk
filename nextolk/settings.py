@@ -1,3 +1,5 @@
+# next_tiktok/settings.py (UPDATED for Render Deployment & PostgreSQL, and Jazzmin Theme)
+
 from pathlib import Path
 import os
 import environ
@@ -37,7 +39,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'user',
     'eshop',
-    'whitenoise.runserver_nostatic',  # Serve static in dev
+    'whitenoise.runserver_nostatic',
 ]
 
 MIDDLEWARE = [
@@ -164,9 +166,9 @@ JAZZMIN_UI_TWEAKS = {
     "footer_small_text": False,
     "body_small_text": False,
     "brand_small_text": False,
-    "brand_colour": "navbar-dark",
-    "accent": "accent-info",
-    "navbar": "navbar-dark navbar-primary",
+    "brand_colour": "navbar-white", # Changed from navbar-dark to navbar-white for a lighter top bar
+    "accent": "accent-primary", # Changed from accent-info to accent-primary for a more common accent color
+    "navbar": "navbar-white navbar-light", # Changed from navbar-dark navbar-primary for a lighter navbar
     "no_navbar_border": False,
     "navbar_fixed": False,
     "layout_boxed": False,
@@ -178,8 +180,8 @@ JAZZMIN_UI_TWEAKS = {
     "sidebar_nav_compact_style": False,
     "sidebar_nav_legacy_style": True,
     "sidebar_nav_flat_style": False,
-    "theme": "darkly",
-    "dark_mode_theme": "darkly",
+    "theme": "flatly", # Changed from "darkly" to "flatly" for a lighter, modern look
+    "dark_mode_theme": None, # Set to None to prevent automatic dark mode if not desired
     "button_classes": {
         "primary": "btn-outline-primary",
         "secondary": "btn-outline-secondary",
