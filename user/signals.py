@@ -1,7 +1,7 @@
-# user/signals.py (UPDATED: Indentation Fixed, Simplified for Cloudinary Upload)
+# user/signals.py (UPDATED: Added Debug Logging for Cloudinary Upload)
 
 import os
-# import ffmpeg # Removed if Cloudinary handles transcoding
+# import ffmpeg # Ensure this is commented out if not using local FFmpeg
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Video, Profile
@@ -12,7 +12,7 @@ from django.core.files.base import ContentFile
 import logging
 import tempfile
 import shutil
-import cloudinary.uploader # Import Cloudinary uploader
+import cloudinary.uploader
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +29,16 @@ def upload_video_to_cloudinary(sender, instance, created, **kwargs):
         return
 
     # Only process if it's a new video and the video_file is a local file
-    # (i.e., not already a Cloudinary URL)
-    # CloudinaryField will store the file locally first before the signal processes it.
+    # (i.e., not already a Cloudinary URL). CloudinaryField saves to default_storage first.
     if created and instance.video_file and not instance.video_file.url.startswith('http'):
-        # We need the actual file content to upload to Cloudinary.
-        # If the file is already saved to default_storage (which it is by CloudinaryField),
-        # we need to read it from there.
         try:
+            # Read the file content from default_storage (which is where CloudinaryField puts it initially)
             with default_storage.open(instance.video_file.name, 'rb') as f:
                 file_content = f.read()
+            
+            # Log file details before attempting upload
+            logger.debug(f"Video upload signal: Processing file '{instance.video_file.name}', size: {len(file_content)} bytes")
+            
             thread = threading.Thread(target=_upload_and_update_video, args=(instance.id, file_content, instance.video_file.name))
             thread.start()
         except Exception as e:
@@ -57,6 +58,10 @@ def upload_profile_picture_to_cloudinary(sender, instance, created, **kwargs):
         try:
             with default_storage.open(instance.profile_picture.name, 'rb') as f:
                 file_content = f.read()
+
+            # Log file details before attempting upload
+            logger.debug(f"Profile picture upload signal: Processing file '{instance.profile_picture.name}', size: {len(file_content)} bytes")
+
             thread = threading.Thread(target=_upload_and_update_profile_picture, args=(instance.id, file_content, instance.profile_picture.name))
             thread.start()
         except Exception as e:
@@ -72,7 +77,8 @@ def _upload_and_update_video(video_id, file_content, file_name):
         video_instance = Video.objects.get(id=video_id)
         
         logger.info(f"Uploading video {file_name} for video ID {video_id} to Cloudinary.")
-
+        
+        # Explicitly set resource_type to "video"
         upload_result = cloudinary.uploader.upload(
             file_content,
             resource_type="video",
@@ -96,12 +102,9 @@ def _upload_and_update_video(video_id, file_content, file_name):
             _STILL_SAVING_VIDEO.value = False
 
         # Delete the temporary local file that Django's CloudinaryField might have saved
-        # before the signal processed it.
-        # This is important to clean up after the upload to Cloudinary.
         if default_storage.exists(video_instance.video_file.name):
             default_storage.delete(video_instance.video_file.name)
             logger.info(f"Local temporary video file deleted: {video_instance.video_file.name}")
-
 
     except Exception as e:
         logger.error(f"Error during video upload to Cloudinary for video ID {video_id}: {e}", exc_info=True)
@@ -116,9 +119,10 @@ def _upload_and_update_profile_picture(profile_id, file_content, file_name):
         
         logger.info(f"Uploading profile picture {file_name} for profile ID {profile_id} to Cloudinary.")
 
+        # Explicitly set resource_type to "image"
         upload_result = cloudinary.uploader.upload(
             file_content,
-            resource_type="image",
+            resource_type="image", # Ensure this is 'image' for profile pictures
             public_id=f"nextolke_profile_pics/{os.path.splitext(file_name)[0]}",
             folder="nextolke_profile_pics",
             eager=[
@@ -142,7 +146,5 @@ def _upload_and_update_profile_picture(profile_id, file_content, file_name):
             default_storage.delete(profile_instance.profile_picture.name)
             logger.info(f"Local temporary profile picture file deleted: {profile_instance.profile_picture.name}")
 
-
     except Exception as e:
         logger.error(f"Error during profile picture upload to Cloudinary for profile ID {profile_id}: {e}", exc_info=True)
-
