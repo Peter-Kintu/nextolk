@@ -98,7 +98,7 @@ CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
 CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
 
 # Configure Cloudinary as the default file storage for media
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+DEFAULT_FILE_STORAGE = 'cloudinary.storage.MediaCloudinaryStorage'
 MEDIA_URL = '/media/' # This can be a placeholder, Cloudinary generates its own URLs
 
 # Authentication
