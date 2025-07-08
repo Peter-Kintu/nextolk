@@ -7,7 +7,7 @@ import dj_database_url
 
 # Initialize environment
 env = environ.Env(
-    DEBUG=(bool, False),
+    DEBUG=(bool, True),
     DATABASE_URL=(str, 'sqlite:///db.sqlite3'),
     SECRET_KEY=(str, 'unsafe-secret-key'),
     RENDER=(bool, False),
