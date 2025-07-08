@@ -1,17 +1,17 @@
-    # user/signals.py (UPDATED: S3 Compatibility for Transcoding)
+    # user/signals.py (UPDATED: Simplified for Cloudinary Upload)
 
     import os
-    import ffmpeg
     from django.db.models.signals import post_save
     from django.dispatch import receiver
-    from .models import Video
+    from .models import Video, Profile # Import Profile as well for profile_picture
     from django.conf import settings
     import threading
     from django.core.files.storage import default_storage
     from django.core.files.base import ContentFile
     import logging
-    import tempfile # NEW
-    import shutil # NEW
+    import tempfile
+    import shutil
+    import cloudinary.uploader # NEW: Import Cloudinary uploader
 
     logger = logging.getLogger(__name__)
 
@@ -19,72 +19,116 @@
     _STILL_SAVING_VIDEO.value = False
 
     @receiver(post_save, sender=Video)
-    def transcode_video_on_upload(sender, instance, created, **kwargs):
+    def upload_video_to_cloudinary(sender, instance, created, **kwargs):
+        """
+        Signal to upload new video files to Cloudinary.
+        This runs in a separate thread to avoid blocking the main request.
+        """
         if _STILL_SAVING_VIDEO.value:
             return
 
-        # Only transcode if it's a new video and it's not already an S3 URL (meaning it's a new upload to local storage first)
-        # Or if you want to force re-transcoding for existing S3 files, adjust this logic.
-        if created and not instance.video_file.url.startswith('http'): # Check if it's a local path
-            thread = threading.Thread(target=_transcode_and_update_video, args=(instance.id,))
+        # Only process if it's a new video and the video_file is a local file
+        # (i.e., not already a Cloudinary URL)
+        if created and isinstance(instance.video_file.file, ContentFile):
+            thread = threading.Thread(target=_upload_and_update_video, args=(instance.id, instance.video_file.file.read(), instance.video_file.name))
             thread.start()
 
-    def _transcode_and_update_video(video_id):
-        temp_dir = None # Initialize temp_dir
+    @receiver(post_save, sender=Profile)
+    def upload_profile_picture_to_cloudinary(sender, instance, created, **kwargs):
+        """
+        Signal to upload new profile pictures to Cloudinary.
+        """
+        if _STILL_SAVING_VIDEO.value: # Use the same flag to avoid recursion
+            return
+
+        # Only process if it's a new profile picture and it's a local file
+        if instance.profile_picture and isinstance(instance.profile_picture.file, ContentFile):
+            thread = threading.Thread(target=_upload_and_update_profile_picture, args=(instance.id, instance.profile_picture.file.read(), instance.profile_picture.name))
+            thread.start()
+
+
+    def _upload_and_update_video(video_id, file_content, file_name):
+        """
+        Internal function to handle video upload to Cloudinary and model update.
+        Runs in a separate thread.
+        """
         try:
             video_instance = Video.objects.get(id=video_id)
             
-            # Create a temporary directory to store the downloaded and transcoded files
-            temp_dir = tempfile.mkdtemp()
-            original_local_path = os.path.join(temp_dir, os.path.basename(video_instance.video_file.name))
-            transcoded_local_path = os.path.join(temp_dir, f"{os.path.splitext(os.path.basename(video_instance.video_file.name))[0]}_transcoded.mp4")
+            logger.info(f"Uploading video {file_name} for video ID {video_id} to Cloudinary.")
 
-            logger.info(f"Downloading original video {video_instance.video_file.name} to {original_local_path}")
-            # Download the original file from S3 (or local storage) to a temporary local path
-            with default_storage.open(video_instance.video_file.name, 'rb') as s3_file:
-                with open(original_local_path, 'wb') as local_file:
-                    for chunk in s3_file.chunks():
-                        local_file.write(chunk)
-            logger.info(f"Original video downloaded to {original_local_path}")
-
-            logger.info(f"Starting transcoding for video ID {video_id}: {original_local_path}")
-            logger.info(f"Output path: {transcoded_local_path}")
-
-            (
-                ffmpeg
-                .input(original_local_path)
-                .output(transcoded_local_path, vcodec='libx264', acodec='aac', strict='experimental', movflags='faststart', preset='veryfast', crf=23)
-                .overwrite_output()
-                .run(capture_stdout=True, capture_stderr=True)
+            # Upload to Cloudinary
+            # resource_type='video' is crucial for video uploads
+            # folder can be used to organize files in Cloudinary (e.g., 'nextolke_videos')
+            upload_result = cloudinary.uploader.upload(
+                file_content,
+                resource_type="video",
+                public_id=f"nextolke_videos/{os.path.splitext(file_name)[0]}", # Unique public ID
+                folder="nextolke_videos", # Optional: organize in a folder
+                eager=[ # Optional: eager transformations for different formats/qualities
+                    {"width": 640, "height": 480, "crop": "limit", "format": "mp4", "quality": "auto"},
+                    {"width": 320, "height": 240, "crop": "limit", "format": "webm", "quality": "auto"}
+                ],
+                invalidate=True # Invalidate CDN cache
             )
             
-            logger.info(f"Finished transcoding for video ID {video_id}.")
+            logger.info(f"Cloudinary upload result for video ID {video_id}: {upload_result}")
 
-            # Upload the transcoded file back to S3
-            with open(transcoded_local_path, 'rb') as f:
-                content_file = ContentFile(f.read(), name=os.path.basename(transcoded_local_path))
-                
-                _STILL_SAVING_VIDEO.value = True
-                try:
-                    # Save the new transcoded file to S3
-                    video_instance.video_file.save(os.path.basename(transcoded_local_path), content_file, save=False)
-                    video_instance.save(update_fields=['video_file'])
-                    logger.info(f"Video ID {video_id} updated with transcoded file: {video_instance.video_file.url}")
-                finally:
-                    _STILL_SAVING_VIDEO.value = False
+            # Get the URL of the primary (original or default transformed) video
+            video_url = upload_result['secure_url']
 
-            # Delete the original file from S3
-            default_storage.delete(video_instance.video_file.name)
-            logger.info(f"Original video file deleted from storage: {video_instance.video_file.name}")
+            _STILL_SAVING_VIDEO.value = True
+            try:
+                # Update the video_file field with the Cloudinary URL
+                # CloudinaryField automatically handles storing the Cloudinary public ID
+                # and generating the URL, so we just need to save the model.
+                # The 'video_file' field will now store the public_id, and its .url property
+                # will generate the Cloudinary URL.
+                video_instance.video_file = upload_result['public_id'] # Store public ID
+                video_instance.save(update_fields=['video_file'])
+                logger.info(f"Video ID {video_id} updated with Cloudinary public ID: {video_instance.video_file.public_id}")
+            finally:
+                _STILL_SAVING_VIDEO.value = False
 
-        except ffmpeg.Error as e:
-            logger.error(f"FFmpeg error during transcoding for video ID {video_id}: {e.stderr.decode()}", exc_info=True)
+            # Optionally, delete the temporary local file if it was saved locally first
+            # (though with CloudinaryField, files are directly uploaded)
+            # If you were using a temporary local file, this is where you'd clean it up.
+
         except Exception as e:
-            logger.error(f"Error during video transcoding for video ID {video_id}: {e}", exc_info=True)
-        finally:
-            # Clean up the temporary directory
-            if temp_dir and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-                logger.info(f"Temporary directory {temp_dir} removed.")
+            logger.error(f"Error during video upload to Cloudinary for video ID {video_id}: {e}", exc_info=True)
+
+    def _upload_and_update_profile_picture(profile_id, file_content, file_name):
+        """
+        Internal function to handle profile picture upload to Cloudinary and model update.
+        Runs in a separate thread.
+        """
+        try:
+            profile_instance = Profile.objects.get(id=profile_id)
+            
+            logger.info(f"Uploading profile picture {file_name} for profile ID {profile_id} to Cloudinary.")
+
+            upload_result = cloudinary.uploader.upload(
+                file_content,
+                resource_type="image",
+                public_id=f"nextolke_profile_pics/{os.path.splitext(file_name)[0]}",
+                folder="nextolke_profile_pics",
+                eager=[
+                    {"width": 200, "height": 200, "crop": "fill", "gravity": "face", "format": "jpg"}
+                ],
+                invalidate=True
+            )
+            
+            logger.info(f"Cloudinary upload result for profile ID {profile_id}: {upload_result}")
+
+            _STILL_SAVING_VIDEO.value = True # Use the same flag
+            try:
+                profile_instance.profile_picture = upload_result['public_id']
+                profile_instance.save(update_fields=['profile_picture'])
+                logger.info(f"Profile ID {profile_id} updated with Cloudinary public ID: {profile_instance.profile_picture.public_id}")
+            finally:
+                _STILL_SAVING_VIDEO.value = False
+
+        except Exception as e:
+            logger.error(f"Error during profile picture upload to Cloudinary for profile ID {profile_id}: {e}", exc_info=True)
 
     

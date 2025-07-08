@@ -1,4 +1,4 @@
-    # next_tiktok/settings.py (UPDATED: S3 Storage Configuration)
+    # next_tiktok/settings.py (UPDATED: Cloudinary Storage Configuration)
 
     from pathlib import Path
     import os
@@ -11,11 +11,9 @@
         DATABASE_URL=(str, 'sqlite:///db.sqlite3'),
         SECRET_KEY=(str, 'unsafe-secret-key'),
         RENDER=(bool, False),
-        AWS_ACCESS_KEY_ID=(str, ''), # NEW: Default empty
-        AWS_SECRET_ACCESS_KEY=(str, ''), # NEW: Default empty
-        AWS_STORAGE_BUCKET_NAME=(str, ''), # NEW: Default empty
-        AWS_S3_REGION_NAME=(str, 'us-east-1'), # NEW: Default AWS region (change to yours)
-        AWS_S3_CUSTOM_DOMAIN=(str, ''), # NEW: For custom domain if you use one
+        CLOUDINARY_CLOUD_NAME=(str, ''), # NEW: Default empty
+        CLOUDINARY_API_KEY=(str, ''),    # NEW: Default empty
+        CLOUDINARY_API_SECRET=(str, ''), # NEW: Default empty
     )
 
     # Load .env file if present
@@ -45,7 +43,7 @@
         'user',
         'eshop',
         'whitenoise.runserver_nostatic',
-        'storages', # NEW: Add django-storages
+        'cloudinary', # NEW: Add Cloudinary app
     ]
 
     MIDDLEWARE = [
@@ -94,27 +92,14 @@
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-    # Media files (S3 Configuration)
-    # Only use S3 when deployed on Render (or if AWS credentials are provided)
-    if RENDER or (env('AWS_ACCESS_KEY_ID') and env('AWS_SECRET_ACCESS_KEY') and env('AWS_STORAGE_BUCKET_NAME')):
-        AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY')
-        AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME')
-        AWS_S3_REGION_NAME = env('AWS_S3_REGION_NAME')
-        AWS_S3_FILE_OVERWRITE = False # Don't overwrite files with the same name
-        AWS_DEFAULT_ACL = 'public-read' # Make uploaded files publicly readable
-        AWS_QUERYSTRING_AUTH = False # Don't add query string authentication to URLs
-        AWS_S3_VERIFY_SSL = True
-        DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/media/' # NEW: S3 media URL
-        # If you have a custom domain for S3 (e.g., CDN), uncomment and set this:
-        # AWS_S3_CUSTOM_DOMAIN = env('AWS_S3_CUSTOM_DOMAIN')
-        # MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
-    else:
-        # Local development settings for media files
-        MEDIA_URL = '/media/'
-        MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
+    # Media files (Cloudinary Configuration)
+    CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
+    CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
+    CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
 
+    # Configure Cloudinary as the default file storage for media
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    MEDIA_URL = '/media/' # This can be a placeholder, Cloudinary generates its own URLs
 
     # Authentication
     AUTH_PASSWORD_VALIDATORS = [
