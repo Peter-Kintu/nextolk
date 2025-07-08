@@ -1,16 +1,17 @@
-# user/models.py (UPDATED: Indentation Fixed, CloudinaryField for Video and Profile Picture)
+# user/models.py (UPDATED: Explicit resource_type for CloudinaryField)
 
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from cloudinary.models import CloudinaryField # NEW: Import CloudinaryField
+from cloudinary.models import CloudinaryField
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(max_length=500, blank=True)
-    profile_picture = CloudinaryField('image', blank=True, null=True) # Changed to CloudinaryField
+    # Explicitly set resource_type to 'image'
+    profile_picture = CloudinaryField('image', blank=True, null=True, resource_type='image')
     follower_count = models.PositiveIntegerField(default=0)
     following_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -23,7 +24,8 @@ class Video(models.Model):
     Model to store video information, including metadata from the video editor.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='videos')
-    video_file = CloudinaryField('video') # Changed to CloudinaryField for videos
+    # Explicitly set resource_type to 'video'
+    video_file = CloudinaryField('video', resource_type='video')
     caption = models.TextField(blank=True)
     likes_count = models.PositiveIntegerField(default=0)
     comments_count = models.PositiveIntegerField(default=0)
