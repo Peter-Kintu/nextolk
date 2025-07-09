@@ -1,4 +1,4 @@
-# user/signals.py (UPDATED: Video Codec and Audio Codec for Cloudinary)
+# user/signals.py (UPDATED: Aggressive H.264 Profile/Level for Cloudinary)
 
 import os
 # import ffmpeg # Ensure this is commented out if not using local FFmpeg
@@ -89,6 +89,8 @@ def _upload_and_update_video(video_id, file_content, file_name):
                     "width": 640, "height": 480, "crop": "limit",
                     "format": "mp4",          # Ensure MP4 format
                     "video_codec": "h264",    # Explicitly set H.264 video codec
+                    "profile": "baseline",    # Force H.264 Baseline profile for max compatibility
+                    "level": "3.0",           # Force H.264 Level 3.0 for max compatibility
                     "audio_codec": "aac",     # Explicitly set AAC audio codec
                     "quality": "auto"         # Auto-optimize quality
                 },
