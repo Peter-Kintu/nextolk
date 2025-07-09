@@ -1,4 +1,4 @@
-# user/signals.py (UPDATED: Added Debug Logging for Cloudinary Upload)
+# user/signals.py (UPDATED: Video Codec and Audio Codec for Cloudinary)
 
 import os
 # import ffmpeg # Ensure this is commented out if not using local FFmpeg
@@ -85,7 +85,14 @@ def _upload_and_update_video(video_id, file_content, file_name):
             public_id=f"nextolke_videos/{os.path.splitext(file_name)[0]}",
             folder="nextolke_videos",
             eager=[
-                {"width": 640, "height": 480, "crop": "limit", "format": "mp4", "quality": "auto"},
+                {
+                    "width": 640, "height": 480, "crop": "limit",
+                    "format": "mp4",          # Ensure MP4 format
+                    "video_codec": "h264",    # Explicitly set H.264 video codec
+                    "audio_codec": "aac",     # Explicitly set AAC audio codec
+                    "quality": "auto"         # Auto-optimize quality
+                },
+                # You can keep or remove the webm eager transformation if not needed
                 {"width": 320, "height": 240, "crop": "limit", "format": "webm", "quality": "auto"}
             ],
             invalidate=True
