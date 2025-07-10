@@ -1,4 +1,4 @@
-# user/models.py (UPDATED: Explicit resource_type for CloudinaryField)
+# user/models.py (UPDATED: Explicit resource_type for CloudinaryField and get_full_cloudinary_url)
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -6,6 +6,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from cloudinary.models import CloudinaryField
+from django.conf import settings # Import settings to access CLOUDINARY_CLOUD_NAME
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -41,6 +42,22 @@ class Video(models.Model):
 
     class Meta:
         ordering = ['-created_at'] # Order videos by newest first
+
+    def get_full_cloudinary_url(self):
+        """
+        Constructs the full Cloudinary URL for the video file.
+        This is useful for direct linking and debugging.
+        Assumes video_file stores the public ID (e.g., 'nextolke_videos/my_video').
+        """
+        if self.video_file:
+            # CloudinaryField.url already gives the full URL with version and format,
+            # but sometimes you might want a more controlled URL or if the field
+            # stores only the public ID string.
+            # If video_file is a CloudinaryField, its .url property is already the full URL.
+            # If it's storing just the public ID string, you'd construct it like this:
+            # return f"https://res.cloudinary.com/{settings.CLOUDINARY_CLOUD_NAME}/video/upload/{self.video_file}"
+            return self.video_file.url # Use the .url property of CloudinaryField
+        return None
 
 
 class Comment(models.Model):
