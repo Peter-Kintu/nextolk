@@ -10,7 +10,14 @@ services:
     name: "nextolk-db"
     plan: "starter"
     region: "oregon"
-    # ipAllowList: [] # Optional: Restrict access by IP. Empty means accessible by other Render services.
+    # Optional: Define a connection string variable for explicit referencing
+    # This will create an environment variable named DATABASE_URL in your web service
+    # pointing to this database's internal connection string.
+    # The value of this key will be the name of the environment variable created.
+    # We will use this in the web service's envVars.
+    # IMPORTANT: The 'connectionString' key is specific to Render's Blueprint
+    # and tells it to generate a URL for this database.
+    connectionString: "DATABASE_URL" # This key tells Render to create an ENV var named DATABASE_URL for this DB.
 
   # ----------------------------------------------------------------------
   # 2. Django Web Service
@@ -26,8 +33,13 @@ services:
 
     # Environment variables for your Django application
     envVars:
+      # Reference the DATABASE_URL that the 'nextolke-db' service exports
+      # The 'fromService' key is used to pull an environment variable from another service
+      # within the same Blueprint.
       - key: "DATABASE_URL"
-        fromDatabase: "nextolk-db"
+        fromService:
+          name: "nextolk-db"
+          property: "connectionString" # This refers to the 'connectionString' defined on the database service
       - key: "SECRET_KEY"
         generateValue: true
       - key: "CLOUDINARY_CLOUD_NAME"
