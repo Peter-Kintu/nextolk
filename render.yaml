@@ -7,7 +7,7 @@
 # ----------------------------------------------------------------------
 databases:
   - name: "nextolke-db" # Give your database a unique name (e.g., your_app_name-db)
-    plan: "starter" # 'starter' is usually fine for development/small apps. 'free' might be available for some accounts.
+    plan: "free" # 'starter' is usually fine for development/small apps. 'free' might be available for some accounts.
     region: "oregon" # Choose a region close to your users or other services (e.g., 'frankfurt', 'singapore')
     # ipAllowList: [] # Optional: Restrict access by IP. Empty means accessible by other Render services.
 
