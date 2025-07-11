@@ -6,7 +6,7 @@
 # This defines your persistent database.
 # ----------------------------------------------------------------------
 databases:
-  - name: "nextolk-db" # Give your database a unique name (e.g., your_app_name-db)
+  - name: "nextolke-db" # Give your database a unique name (e.g., your_app_name-db)
     plan: "starter" # 'starter' is usually fine for development/small apps. 'free' might be available for some accounts.
     region: "oregon" # Choose a region close to your users or other services (e.g., 'frankfurt', 'singapore')
     # ipAllowList: [] # Optional: Restrict access by IP. Empty means accessible by other Render services.
@@ -17,7 +17,7 @@ services:
   # This defines your Django backend application.
   # ----------------------------------------------------------------------
   - type: "web"
-    name: "nextolk-backend"
+    name: "nextolke-backend"
     env: "python"
     region: "oregon" # Should be the same region as your database for best performance
     buildCommand: "pip install -r requirements.txt" # Command to install dependencies
@@ -26,9 +26,11 @@ services:
 
     # Environment variables for your Django application
     envVars:
-      # Reference the DATABASE_URL from the top-level database definition
+      # Use interpolation to get the connection string from the database service.
+      # This is a more explicit way to reference properties from other services
+      # within the same Blueprint.
       - key: "DATABASE_URL"
-        fromDatabase: "nextolk-db" # This should now work correctly!
+        value: "${nextolke-db.connectionString}" # <<< THIS IS THE CRUCIAL CHANGE
       - key: "SECRET_KEY"
         generateValue: true # Render will generate a strong secret key for you
       - key: "CLOUDINARY_CLOUD_NAME"
