@@ -1,24 +1,17 @@
 # render.yaml
 # Place this file at the root of your Django project's GitHub repository
 
-services:
-  # ----------------------------------------------------------------------
-  # 1. PostgreSQL Database Service
-  # This defines your persistent database.
-  # ----------------------------------------------------------------------
-  - type: "pserv"
-    name: "nextolk-db"
-    plan: "starter"
-    region: "oregon"
-    # Optional: Define a connection string variable for explicit referencing
-    # This will create an environment variable named DATABASE_URL in your web service
-    # pointing to this database's internal connection string.
-    # The value of this key will be the name of the environment variable created.
-    # We will use this in the web service's envVars.
-    # IMPORTANT: The 'connectionString' key is specific to Render's Blueprint
-    # and tells it to generate a URL for this database.
-    connectionString: "DATABASE_URL" # This key tells Render to create an ENV var named DATABASE_URL for this DB.
+# ----------------------------------------------------------------------
+# 1. PostgreSQL Database Service (Defined at the top level)
+# This defines your persistent database.
+# ----------------------------------------------------------------------
+databases:
+  - name: "nextolk-db" # Give your database a unique name (e.g., your_app_name-db)
+    plan: "starter" # 'starter' is usually fine for development/small apps. 'free' might be available for some accounts.
+    region: "oregon" # Choose a region close to your users or other services (e.g., 'frankfurt', 'singapore')
+    # ipAllowList: [] # Optional: Restrict access by IP. Empty means accessible by other Render services.
 
+services:
   # ----------------------------------------------------------------------
   # 2. Django Web Service
   # This defines your Django backend application.
@@ -26,22 +19,18 @@ services:
   - type: "web"
     name: "nextolk-backend"
     env: "python"
-    region: "oregon"
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python manage.py migrate && gunicorn nextolk.wsgi:application"
+    region: "oregon" # Should be the same region as your database for best performance
+    buildCommand: "pip install -r requirements.txt" # Command to install dependencies
+    startCommand: "python manage.py migrate && gunicorn nextolk.wsgi:application" # Command to run migrations and start your Gunicorn server
     # Adjust 'nextolk.wsgi:application' if your project's WSGI file is named differently
 
     # Environment variables for your Django application
     envVars:
-      # Reference the DATABASE_URL that the 'nextolke-db' service exports
-      # The 'fromService' key is used to pull an environment variable from another service
-      # within the same Blueprint.
+      # Reference the DATABASE_URL from the top-level database definition
       - key: "DATABASE_URL"
-        fromService:
-          name: "nextolk-db"
-          property: "connectionString" # This refers to the 'connectionString' defined on the database service
+        fromDatabase: "nextolke-db" # This should now work correctly!
       - key: "SECRET_KEY"
-        generateValue: true
+        generateValue: true # Render will generate a strong secret key for you
       - key: "CLOUDINARY_CLOUD_NAME"
         value: "du5z4g1jl" # Your actual Cloudinary Cloud Name
       - key: "CLOUDINARY_API_KEY"
@@ -49,6 +38,6 @@ services:
       - key: "CLOUDINARY_API_SECRET"
         value: "gduKAmp6kQy1H7BHYC9QNmwMPeU" # Your actual Cloudinary API Secret
       - key: "RENDER"
-        value: "True"
-      - key: "WEB_CONCURRENCY"
-        value: "4"
+        value: "True" # Tell Django that it's running on Render
+      - key: "WEB_CONCURRENCY" # Optional: Adjust for performance
+        value: "4" # Number of Gunicorn workers (often 2 * CPU_CORES + 1)
