@@ -1,5 +1,3 @@
-# next_tiktok/settings.py (UPDATED: Fixed TEMPLATES BACKEND path)
-
 from pathlib import Path
 import os
 import environ
@@ -8,7 +6,7 @@ import dj_database_url
 # Initialize environment
 env = environ.Env(
     DEBUG=(bool, True),
-    DATABASE_URL=(str, 'postgresql://nextok_user:wpdIhw24W0dUKpabKn03raoDucF2mIHQ@dpg-d1o6o5jipnbc73ek7fa0-a/nextok'), # Ensure DATABASE_URL is expected as a string
+    DATABASE_URL=(str, 'postgresql://nextok_user:wpdIhw24W0dUKpabKn03raoDucF2mIHQ@dpg-d1o6o5jipnbc73ek7fa0-a.singapore-postgres.render.com/nextok'),
     SECRET_KEY=(str, 'unsafe-secret-key'),
     CLOUDINARY_CLOUD_NAME=(str, 'du5z4g1jl'),
     CLOUDINARY_API_KEY=(str, '912456986662768'),
@@ -24,7 +22,7 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 RENDER = env('RENDER')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] # Corrected typo '127.00.1' to '127.0.0.1'
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if RENDER:
     ALLOWED_HOSTS.append(env('RENDER_EXTERNAL_HOSTNAME'))
 
@@ -44,7 +42,7 @@ INSTALLED_APPS = [
     'eshop',
     'whitenoise.runserver_nostatic',
     'cloudinary',
-    'django_cloudinary_storage', # Corrected app name here
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -63,7 +61,7 @@ ROOT_URLCONF = 'nextolk.urls'
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates', # <<< CORRECTED THIS LINE
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -88,14 +86,13 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Media files (Cloudinary Configuration)
+# Cloudinary media files
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+MEDIA_URL = '/media/'
+
 CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
 CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
 CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
-
-# Configure Cloudinary as the default file storage for media
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-MEDIA_URL = '/media/'
 
 # Authentication
 AUTH_PASSWORD_VALIDATORS = [
@@ -118,7 +115,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
-    )
+    ),
 }
 
 # CORS setup
@@ -148,9 +145,7 @@ JAZZMIN_SETTINGS = {
         {"model": "eshop.Product"},
         {"model": "auth.User"},
     ],
-    "order_with_respect_to": [
-        "authtoken", "auth", "eshop", "user"
-    ],
+    "order_with_respect_to": ["authtoken", "auth", "eshop", "user"],
     "icons": {
         "auth": "fas fa-users-cog",
         "auth.User": "fas fa-user",
@@ -193,10 +188,10 @@ JAZZMIN_UI_TWEAKS = {
         "info": "btn-info",
         "warning": "btn-warning",
         "danger": "btn-danger",
-        "success": "btn-success"
+        "success": "btn-success",
     },
     "actions_button_classes": {
         "overflow_i": "btn-primary btn-sm",
-        "all": "btn-primary btn-sm"
-    }
+        "all": "btn-primary btn-sm",
+    },
 }
