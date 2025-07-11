@@ -11,8 +11,8 @@ env = environ.Env(
     DATABASE_URL=(str, ''), # Ensure DATABASE_URL is expected as a string
     SECRET_KEY=(str, 'unsafe-secret-key'),
     CLOUDINARY_CLOUD_NAME=(str, ''),
-    CLOUDINARY_API_KEY=(str, ''),
-    CLOUDINARY_API_SECRET=(str, ''),
+    CLOUDINARY_API_KEY=(str, '912456986662768'),
+    CLOUDINARY_API_SECRET=(str, 'gduKAmp6kQy1H7BHYC9QNmwMPeU'),
     RENDER=(bool, False),
 )
 
