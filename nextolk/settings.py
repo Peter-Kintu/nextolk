@@ -8,9 +8,9 @@ import dj_database_url
 # Initialize environment
 env = environ.Env(
     DEBUG=(bool, True),
-    DATABASE_URL=(str, ''), # Ensure DATABASE_URL is expected as a string
+    DATABASE_URL=(str, 'postgresql://nextok_user:wpdIhw24W0dUKpabKn03raoDucF2mIHQ@dpg-d1o6o5jipnbc73ek7fa0-a/nextok'), # Ensure DATABASE_URL is expected as a string
     SECRET_KEY=(str, 'unsafe-secret-key'),
-    CLOUDINARY_CLOUD_NAME=(str, ''),
+    CLOUDINARY_CLOUD_NAME=(str, 'du5z4g1jl'),
     CLOUDINARY_API_KEY=(str, '912456986662768'),
     CLOUDINARY_API_SECRET=(str, 'gduKAmp6kQy1H7BHYC9QNmwMPeU'),
     RENDER=(bool, False),
