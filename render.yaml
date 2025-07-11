@@ -1,45 +1,33 @@
-# render.yaml
-# Place this file at the root of your Django project's GitHub repository
-
-# ----------------------------------------------------------------------
-# 1. PostgreSQL Database Service (Defined at the top level)
-# This defines your persistent database.
-# ----------------------------------------------------------------------
 databases:
-  - name: "nextolke-db" # Give your database a unique name (e.g., your_app_name-db)
-    plan: "free" # 'starter' is usually fine for development/small apps. 'free' might be available for some accounts.
-    region: "oregon" # Choose a region close to your users or other services (e.g., 'frankfurt', 'singapore')
-    # ipAllowList: [] # Optional: Restrict access by IP. Empty means accessible by other Render services.
+  - name: nextolke-db
+    plan: free
+    region: oregon
+    ipAllowList: [] # Optional: empty means accessible internally by other Render services
 
 services:
-  # ----------------------------------------------------------------------
-  # 2. Django Web Service
-  # This defines your Django backend application.
-  # ----------------------------------------------------------------------
-  - type: "web"
-    name: "nextolke-backend"
-    env: "python"
-    region: "oregon" # Should be the same region as your database for best performance
-    buildCommand: "pip install -r requirements.txt" # Command to install dependencies
-    startCommand: "python manage.py migrate && gunicorn nextolk.wsgi:application" # Command to run migrations and start your Gunicorn server
-    # Adjust 'nextolk.wsgi:application' if your project's WSGI file is named differently
+  - type: web
+    name: nextolke-backend
+    env: python
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      python manage.py migrate &&
+      gunicorn nextolk.wsgi:application
 
-    # Environment variables for your Django application
     envVars:
-      # Use interpolation to get the connection string from the database service.
-      # This is a more explicit way to reference properties from other services
-      # within the same Blueprint.
-      - key: "DATABASE_URL"
-        value: "${nextolke-db.connectionString}" # <<< THIS IS THE CRUCIAL CHANGE
-      - key: "SECRET_KEY"
-        generateValue: true # Render will generate a strong secret key for you
-      - key: "CLOUDINARY_CLOUD_NAME"
-        value: "du5z4g1jl" # Your actual Cloudinary Cloud Name
-      - key: "CLOUDINARY_API_KEY"
-        value: "912456986662768" # Your actual Cloudinary API Key
-      - key: "CLOUDINARY_API_SECRET"
-        value: "gduKAmp6kQy1H7BHYC9QNmwMPeU" # Your actual Cloudinary API Secret
-      - key: "RENDER"
-        value: "True" # Tell Django that it's running on Render
-      - key: "WEB_CONCURRENCY" # Optional: Adjust for performance
-        value: "4" # Number of Gunicorn workers (often 2 * CPU_CORES + 1)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nextolke-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        value: du5z4g1jl
+      - key: CLOUDINARY_API_KEY
+        value: 912456986662768
+      - key: CLOUDINARY_API_SECRET
+        value: gduKAmp6kQy1H7BHYC9QNmwMPeU
+      - key: RENDER
+        value: True
+      - key: WEB_CONCURRENCY
+        value: 4
