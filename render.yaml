@@ -1,0 +1,42 @@
+# render.yaml
+# Place this file at the root of your Django project's GitHub repository
+
+services:
+  # ----------------------------------------------------------------------
+  # 1. PostgreSQL Database Service
+  # This defines your persistent database.
+  # ----------------------------------------------------------------------
+  - type: pserv
+    name: nextolke-db # Give your database a unique name (e.g., your_app_name-db)
+    plan: starter # 'starter' is usually fine for development/small apps. 'free' might be available for some accounts.
+    region: oregon # Choose a region close to your users or other services (e.g., 'frankfurt', 'singapore')
+    # ipAllowList: [] # Optional: Restrict access by IP. Empty means accessible by other Render services.
+
+  # ----------------------------------------------------------------------
+  # 2. Django Web Service
+  # This defines your Django backend application.
+  # ----------------------------------------------------------------------
+  - type: web
+    name: nextolke-backend # Give your web service a unique name (e.g., your_app_name-backend)
+    env: python # Specify the environment type
+    region: oregon # Should be the same region as your database for best performance
+    buildCommand: "pip install -r requirements.txt" # Command to install dependencies
+    startCommand: "python manage.py migrate && gunicorn nextolk.wsgi:application" # Command to run migrations and start your Gunicorn server
+    # Adjust 'nextolk.wsgi:application' if your project's WSGI file is named differently
+
+    # Environment variables for your Django application
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: nextolke-db # This tells Render to automatically inject the internal URL of 'nextolke-db'
+      - key: SECRET_KEY
+        generateValue: true # Render will generate a strong secret key for you
+      - key: CLOUDINARY_CLOUD_NAME
+        value: du5z4g1jl # Replace with your actual Cloudinary Cloud Name
+      - key: CLOUDINARY_API_KEY
+        value: 912456986662768 # Replace with your actual Cloudinary API Key
+      - key: CLOUDINARY_API_SECRET
+        value: gduKAmp6kQy1H7BHYC9QNmwMPeU # Replace with your actual Cloudinary API Secret
+      - key: RENDER
+        value: "True" # Tell Django that it's running on Render
+      - key: WEB_CONCURRENCY # Optional: Adjust for performance
+        value: 4 # Number of Gunicorn workers (often 2 * CPU_CORES + 1)

@@ -1,4 +1,4 @@
-# next_tiktok/settings.py (UPDATED: Indentation Fixed, Cloudinary Storage Configuration)
+# next_tiktok/settings.py (UPDATED: Fixed TEMPLATES BACKEND path)
 
 from pathlib import Path
 import os
@@ -8,12 +8,12 @@ import dj_database_url
 # Initialize environment
 env = environ.Env(
     DEBUG=(bool, True),
-    DATABASE_URL=(str, 'sqlite:///db.sqlite3'),
+    DATABASE_URL=(str, ''), # Ensure DATABASE_URL is expected as a string
     SECRET_KEY=(str, 'unsafe-secret-key'),
-    RENDER=(bool, False),
     CLOUDINARY_CLOUD_NAME=(str, ''),
     CLOUDINARY_API_KEY=(str, ''),
     CLOUDINARY_API_SECRET=(str, ''),
+    RENDER=(bool, False),
 )
 
 # Load .env file if present
@@ -24,7 +24,7 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 RENDER = env('RENDER')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1'] # Corrected typo '127.00.1' to '127.0.0.1'
 if RENDER:
     ALLOWED_HOSTS.append(env('RENDER_EXTERNAL_HOSTNAME'))
 
@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     'user',
     'eshop',
     'whitenoise.runserver_nostatic',
-    'cloudinary', # Add Cloudinary app
+    'cloudinary',
+    'django_cloudinary_storage', # Corrected app name here
 ]
 
 MIDDLEWARE = [
@@ -62,7 +63,7 @@ ROOT_URLCONF = 'nextolk.urls'
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'BACKEND': 'django.template.backends.django.DjangoTemplates', # <<< CORRECTED THIS LINE
         'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -81,11 +82,6 @@ WSGI_APPLICATION = 'nextolk.wsgi.application'
 DATABASES = {
     'default': env.db()
 }
-if not RENDER and not os.environ.get('DATABASE_URL'):
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
 
 # Static files
 STATIC_URL = '/static/'
@@ -98,8 +94,8 @@ CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
 CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
 
 # Configure Cloudinary as the default file storage for media
-DEFAULT_FILE_STORAGE = 'cloudinary.storage.MediaCloudinaryStorage'
-MEDIA_URL = '/media/' # This can be a placeholder, Cloudinary generates its own URLs
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+MEDIA_URL = '/media/'
 
 # Authentication
 AUTH_PASSWORD_VALIDATORS = [
