@@ -28,7 +28,7 @@ services:
     envVars:
       # Reference the DATABASE_URL from the top-level database definition
       - key: "DATABASE_URL"
-        fromDatabase: "nextolke-db" # This should now work correctly!
+        fromDatabase: "nextolk-db" # This should now work correctly!
       - key: "SECRET_KEY"
         generateValue: true # Render will generate a strong secret key for you
       - key: "CLOUDINARY_CLOUD_NAME"
