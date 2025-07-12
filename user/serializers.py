@@ -1,9 +1,9 @@
-# user/serializers.py (Updated with user_id, user_profile_picture, hashtags, audio_name, applied_filters in VideoSerializer)
+# user/serializers.py (CRITICAL BACKEND FIX: Include user_id and username in Token Response)
 
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Profile, Video, Comment, Like, Follow, PhoneNumberOTP # Ensure PhoneNumberOTP is imported
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer # Import this
+from .models import Profile, Video, Comment, Like, Follow, PhoneNumberOTP
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer # Import the base serializer
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -35,44 +35,41 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ['user', 'bio', 'profile_picture', 'profile_picture_url', 'follower_count', 'following_count']
-        read_only_fields = ['follower_count', 'following_count']
+        fields = ['user', 'bio', 'profile_picture', 'profile_picture_url', 'follower_count', 'following_count', 'created_at']
+        read_only_fields = ['follower_count', 'following_count', 'created_at']
 
     def get_profile_picture_url(self, obj):
-        # Return the absolute URL for the profile picture
-        # Assumes request context is passed to the serializer for build_absolute_uri
-        if obj.profile_picture:
-            request = self.context.get('request')
-            if request is not None:
-                return request.build_absolute_uri(obj.profile_picture.url)
+        if obj.profile_picture and hasattr(obj.profile_picture, 'url'):
+            # Check if request context is available for absolute URL
+            if 'request' in self.context:
+                return self.context['request'].build_absolute_uri(obj.profile_picture.url)
             return obj.profile_picture.url # Fallback if request context not available
         return None
 
 class VideoSerializer(serializers.ModelSerializer):
     """
-    Serializer for the Video model, now including the user's
-    username, user ID, profile picture, hashtags, audio name, and applied filters.
+    Serializer for the Video model.
+    Includes user_id, user_username, user_profile_picture, hashtags, audio_name, and applied_filters.
     """
-    user_username = serializers.ReadOnlyField(source='user.username')
-    user_id = serializers.ReadOnlyField(source='user.id')
-    user_profile_picture = serializers.SerializerMethodField()
+    user_id = serializers.ReadOnlyField(source='user.id') # Explicitly add user_id
+    user_username = serializers.ReadOnlyField(source='user.username') # Explicitly add user_username
+    user_profile_picture = serializers.SerializerMethodField() # Add profile picture URL
 
     class Meta:
         model = Video
         fields = [
-            'id', 'user', 'user_username', 'user_id', 'user_profile_picture',
+            'id', 'user', 'user_id', 'user_username', 'user_profile_picture',
             'video_file', 'caption', 'likes_count', 'comments_count',
-            'created_at', 'hashtags', 'audio_name', 'applied_filters'
+            'created_at', 'hashtags', 'audio_name', 'applied_filters', 'is_live'
         ]
-        read_only_fields = ['user', 'likes_count', 'comments_count', 'created_at']
+        read_only_fields = ['user', 'likes_count', 'comments_count', 'created_at', 'user_id', 'user_username', 'user_profile_picture']
 
     def get_user_profile_picture(self, obj):
-        # Return the absolute URL for the user's profile picture
-        if obj.user.profile.profile_picture:
-            request = self.context.get('request')
-            if request is not None:
-                return request.build_absolute_uri(obj.user.profile.profile_picture.url)
-            return obj.user.profile.profile_picture.url # Fallback if request context not available
+        # Get the profile picture URL from the associated Profile model
+        if hasattr(obj.user, 'profile') and obj.user.profile.profile_picture:
+            if 'request' in self.context:
+                return self.context['request'].build_absolute_uri(obj.user.profile.profile_picture.url)
+            return obj.user.profile.profile_picture.url
         return None
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -115,30 +112,26 @@ class PhoneNumberOTPSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = PhoneNumberOTP
-        fields = ['id', 'phone_number', 'otp', 'created_at', 'expires_at']
+        fields = ['phone_number', 'otp', 'created_at', 'expires_at']
         read_only_fields = ['created_at', 'expires_at']
 
-# --- NEW: Custom Token Obtain Pair Serializer ---
+# NEW: Custom Token Obtain Pair Serializer to include user_id and username
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Customizes the JWT TokenObtainPairSerializer to include user_id and username
+    in the response data.
+    """
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Add custom claims to the token payload (these are encoded in the token)
+        # Add custom claims
         token['user_id'] = user.id
         token['username'] = user.username
         return token
 
     def validate(self, attrs):
-        # This method is called when the serializer validates the input credentials.
-        # The default implementation adds 'access' and 'refresh' to the data.
         data = super().validate(attrs)
-
-        # Add custom data to the response body (these are directly in the JSON response)
+        # Add user_id and username to the response data
         data['user_id'] = self.user.id
         data['username'] = self.user.username
-        # You can add more profile-related data here if needed, e.g.:
-        # if hasattr(self.user, 'profile'):
-        #     data['profile_bio'] = self.user.profile.bio
-        #     data['profile_picture_url'] = self.user.profile.profile_picture.url if self.user.profile.profile_picture else None
-
         return data

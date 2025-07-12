@@ -323,4 +323,3 @@ class CurrentUserProfileView(generics.RetrieveAPIView):
         # Ensure the user has a profile, create one if not (though signal should handle this)
         profile, created = Profile.objects.get_or_create(user=self.request.user)
         return profile
-
