@@ -3,10 +3,14 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
+    # TokenObtainPairView, # Remove this import
     TokenRefreshView,
     TokenVerifyView,
 )
+
+# Import your custom view
+from .views import CustomTokenObtainPairView # Import this
+
 
 # Create a router and register our viewsets with it.
 router = DefaultRouter()
@@ -22,7 +26,8 @@ urlpatterns = [
     path('register/', views.RegisterView.as_view(), name='api_register'),
 
     # NEW: JWT Authentication Endpoints
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # MODIFIED: Use your CustomTokenObtainPairView here
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
@@ -52,3 +57,4 @@ urlpatterns = [
     path('request-otp/', views.RequestOTPView.as_view(), name='request_otp'),
     path('verify-otp/', views.VerifyOTPView.as_view(), name='verify_otp'),
 ]
+

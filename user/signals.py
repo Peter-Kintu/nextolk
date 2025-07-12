@@ -157,3 +157,4 @@ def _upload_and_update_profile_picture(profile_id, file_content, file_name):
 
     except Exception as e:
         logger.error(f"Error during profile picture upload to Cloudinary for profile ID {profile_id}: {e}", exc_info=True)
+

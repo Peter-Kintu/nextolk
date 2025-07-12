@@ -3,6 +3,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Profile, Video, Comment, Like, Follow, PhoneNumberOTP # Ensure PhoneNumberOTP is imported
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer # Import this
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -116,3 +117,28 @@ class PhoneNumberOTPSerializer(serializers.ModelSerializer):
         model = PhoneNumberOTP
         fields = ['id', 'phone_number', 'otp', 'created_at', 'expires_at']
         read_only_fields = ['created_at', 'expires_at']
+
+# --- NEW: Custom Token Obtain Pair Serializer ---
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Add custom claims to the token payload (these are encoded in the token)
+        token['user_id'] = user.id
+        token['username'] = user.username
+        return token
+
+    def validate(self, attrs):
+        # This method is called when the serializer validates the input credentials.
+        # The default implementation adds 'access' and 'refresh' to the data.
+        data = super().validate(attrs)
+
+        # Add custom data to the response body (these are directly in the JSON response)
+        data['user_id'] = self.user.id
+        data['username'] = self.user.username
+        # You can add more profile-related data here if needed, e.g.:
+        # if hasattr(self.user, 'profile'):
+        #     data['profile_bio'] = self.user.profile.bio
+        #     data['profile_picture_url'] = self.user.profile.profile_picture.url if self.user.profile.profile_picture else None
+
+        return data

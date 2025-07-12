@@ -1,4 +1,4 @@
-# user/views.py (UPDATED: Added CurrentUserProfileView)
+# user/views.py (UPDATED: Added CustomTokenObtainPairView)
 
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect, get_object_or_404
@@ -14,6 +14,10 @@ from .models import Profile, Video, Comment, Like, Follow, PhoneNumberOTP
 from .serializers import ProfileSerializer, UserSerializer, VideoSerializer, CommentSerializer, LikeSerializer, FollowSerializer, PhoneNumberOTPSerializer
 from django.utils import timezone
 import random
+
+# Import the custom serializer
+from .serializers import CustomTokenObtainPairSerializer # Import this
+from rest_framework_simplejwt.views import TokenObtainPairView # Import the base view
 
 # This is a web-based view, not for the API.
 # It can be kept for a web dashboard or removed if not needed.
@@ -36,6 +40,14 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = UserSerializer
+
+# --- NEW: Custom Token Obtain Pair View ---
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Customized JWT Token Obtain Pair View to include user_id and username in the response.
+    """
+    serializer_class = CustomTokenObtainPairSerializer
+
 
 class ProfileViewSet(viewsets.ModelViewSet):
     """
@@ -261,8 +273,8 @@ class RequestOTPView(APIView):
         )
 
         # In a real application, you would send this OTP via an SMS gateway
-        debug_print_otp = f"OTP for {phone_number}: {otp}" # For debugging purposes only
-        print(debug_print_otp) # Print to console for development
+        # debug_print_otp = f"OTP for {phone_number}: {otp}" # For debugging purposes only
+        # print(debug_print_otp) # Print to console for development
 
         return Response({'message': 'OTP sent successfully.', 'otp': otp}, status=status.HTTP_200_OK)
 
@@ -311,3 +323,4 @@ class CurrentUserProfileView(generics.RetrieveAPIView):
         # Ensure the user has a profile, create one if not (though signal should handle this)
         profile, created = Profile.objects.get_or_create(user=self.request.user)
         return profile
+

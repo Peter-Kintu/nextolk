@@ -84,3 +84,4 @@ class PhoneNumberOTPAdmin(admin.ModelAdmin):
     search_fields = ('phone_number',)
     list_filter = ('created_at', 'expires_at')
     readonly_fields = ('created_at', 'expires_at', 'is_valid') # OTP should not be manually editable after creation
+
