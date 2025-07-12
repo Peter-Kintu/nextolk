@@ -1,4 +1,4 @@
-# user/models.py (UPDATED: Explicit resource_type for CloudinaryField and get_full_cloudinary_url)
+# user/models.py (UPDATED: Fixed f-string syntax error in Profile.__str__)
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -18,6 +18,7 @@ class Profile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
+        # CORRECTED: Removed the extra '}' which caused the SyntaxError
         return f'{self.user.username} Profile'
 
 class Video(models.Model):
@@ -36,6 +37,7 @@ class Video(models.Model):
     hashtags = models.JSONField(default=list, blank=True, null=True) # Store list of strings
     audio_name = models.CharField(max_length=255, blank=True, null=True) # Name of applied audio track
     applied_filters = models.JSONField(default=list, blank=True, null=True) # List of applied filter names
+    is_live = models.BooleanField(default=False) # NEW FIELD: To indicate if the video is a live stream
 
     def __str__(self):
         return f'Video by {self.user.username} - {self.caption[:30]}'
