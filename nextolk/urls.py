@@ -17,7 +17,7 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    path('api/', include('user.urls')),   # Your existing user app URLs
+    path('api/user', include('user.urls')),   # Your existing user app URLs
     # FIXED: Changed 'eshop' to 'ecommerce' to match the app name and Flutter client expectation
     path('api/eshop/', include('eshop.urls')), # E-commerce URLs
 
