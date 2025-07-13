@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    'corsheaders',
+    'corsheaders', # Ensure this is present
     'user',
     'eshop',
     'whitenoise.runserver_nostatic',
@@ -48,7 +48,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # Ensure this is placed correctly (high up)
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -126,7 +126,7 @@ else:
     CORS_ALLOWED_ORIGINS = [
         'https://africana-1b1c6.web.app',
         'https://africana-1b1c6.firebaseapp.com',
-        'https://nextolk.onrender.com',
+        # Removed 'https://nextolk.onrender.com' as it's the backend URL
     ]
 
 # Jazzmin
